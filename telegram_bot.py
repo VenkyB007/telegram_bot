@@ -1,9 +1,17 @@
+from datetime import datetime
 from typing import Final
+
+import pytz
+import requests
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import requests
-from datetime import datetime
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 TOKEN: Final = '6875683083:AAHLjH_Eju7CpN3y-m4mdos7afnvGM8d9dY'
 
@@ -26,9 +34,6 @@ async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def slots_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # message = f""
-    # message += handle_slot_response("PLAY_MANIA", PLAY_MANIA_ID)
-    # message += handle_slot_response("INFINITY_BADMINTON_ARENA", INFINITY_ID)
 
     await update.message.reply_text(handle_slot_response("PLAY_MANIA", PLAY_MANIA_ID), parse_mode=ParseMode.HTML)
     await update.message.reply_text(handle_slot_response("INFINITY_BADMINTON_ARENA", INFINITY_ID),
@@ -36,13 +41,16 @@ async def slots_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def handle_slot_response(venue: str, venue_id: str) -> str:
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    utc_now = datetime.utcnow()
+    india_timezone = pytz.timezone('Asia/Kolkata')
+    india_now = utc_now.astimezone(india_timezone)
+    current_date = india_now.strftime("%Y-%m-%d")
     url = (f'https://playo.club/book-api/v5/availability/{venue_id}/SP5/{current_date}'
            '/?userId=8871905885&deviceType=99')
     headers = {
         'Authorization': 'b4ee93df154de37b0e38aa6a5dfda071aa751bfa'
     }
-    message: str = f""
+    message: str = ""
     response = requests.get(url, headers=headers)
 
     # Check if the request was successful
@@ -51,8 +59,8 @@ def handle_slot_response(venue: str, venue_id: str) -> str:
         fulldata = response.json()
         data = fulldata['data']
         court_list = data.get('courtList', [])
-        current_time = datetime.now().strftime("%H")
-        hours_to_check = range(int(current_time)+1, 23)
+        current_time = india_now.strftime("%H")
+        hours_to_check = range(int(current_time), 23)
         message += f"<b>{venue}</b>\n\n"
         for hour in hours_to_check:
             courts_with_status_1 = []
@@ -74,9 +82,14 @@ def handle_slot_response(venue: str, venue_id: str) -> str:
 
             # Print the result for the hour
             if courts_with_status_1:
-                message += f"<i>{hour} to {hour + 1} :</i> \n{'\n'.join(courts_with_status_1)} \n\n"
+                hour_message = f"<b>{hour} to {hour + 1} :</b>\n"
+                courts_message = '\n'.join(courts_with_status_1)
+
+                # Combine and append to the main message
+                message += f"{hour_message}{courts_message}\n\n"
+                
             else:
-                message += f"<i>{hour} to {hour + 1} :</i> \nNo courts available\n\n"
+                message += f"<b>{hour} to {hour + 1} :</b> \nNo courts available\n\n"
     else:
         print(f"Request failed with status code {response.status_code}")
 
@@ -119,8 +132,8 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == '__main__':
-    app = Application.builder().token(TOKEN).build()
-
+    app = ApplicationBuilder().token(TOKEN).build()
+    counter = 0
     app.add_handler(CommandHandler('start', start_command))
     app.add_handler(CommandHandler('help', help_command))
     app.add_handler(CommandHandler('custom', custom_command))

@@ -60,7 +60,7 @@ def handle_slot_response(venue: str, venue_id: str) -> str:
         data = fulldata['data']
         court_list = data.get('courtList', [])
         current_time = india_now.strftime("%H")
-        hours_to_check = range(int(current_time), 23)
+        hours_to_check = range(int(current_time)+1, 23)
         message += f"<b>{venue}</b>\n\n"
         for hour in hours_to_check:
             courts_with_status_1 = []
